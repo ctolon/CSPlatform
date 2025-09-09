@@ -23,6 +23,15 @@ container_template:
     net.ipv4.tcp_keepalive_probes: "5"
   expose:
     - 8443
+    - 80
+    - 443
+    - 3000
+    - 5000
+    - 8000
+    - 8080
+    - 8081
+    - 8082
+    - 9000
   mem_limit: "8192m"
   cpus: 4
   extra_host:
@@ -33,7 +42,8 @@ container_template:
   networks:
     codeserver_net: "" # dummy identifier
   ports:
-    - "8080:8080"
+    - "33139:33139"
+    - "45029:45029"
 
 agent_metadata:
   instance_id: "87e3b4fb-572d-428f-baec-df179937ebaa"
@@ -44,4 +54,18 @@ agent_metadata:
   host_port_proto: "http"
   version: "1"
   region: "default"
-  serverURL: "code-server-proxy-dev"
+  server_url: "http://code-server-proxy-dev:1081"
+  x_agent_key: "mBdLdSbs5MTwSCd0imxWyWQ93B0/bNQR1JaVwtSyegy5MvfkmfgC2hnKdBgs4qcTDEBV58x5htuetStGZzm/KQ=="
+
+secrets:
+  jwt_access_key: fgxRi7cwdEtwZvBM4X5mQAk45yy06T7HHxBIRGVCaUA=
+  jwt_refresh_key: awkK3guFZymHpSi5Z3XW/tae650QRSlWNPt0QdV4IqcbBtMf7JkMv1K1jSqNRWd3TQ1epI1cJFVvrBhOWAvhrQ==
+  jwt_issuer: csplatform-server
+  jwt_audience: csplatform-client
+  session_secret: UMhqEpLkQBo5VzBMSwEJG78DMgm8OAapRnJqCEt+7OH/nLJfBAHEUW165OEiOu3iCZID7TIoK0ek1bG8AxGm8g==
+
+redis:
+  host: 'code-server-redis'
+  port: 6379
+  password: '123456'
+  db: 1
