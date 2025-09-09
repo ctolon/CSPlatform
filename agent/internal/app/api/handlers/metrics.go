@@ -32,7 +32,7 @@ func (h *MetricsHandler) Fetch(c echo.Context) error {
 	prevIdle = idle
 	prevTotal = total
 
-	ram := h.s.GetRAMUsage()
+	ram := h.s.GetRAMUsageR()
 
 	resp := MetricsResponse{
 		CPU:    cpu,

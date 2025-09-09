@@ -89,3 +89,36 @@ func (s *MetricsService) GetRAMUsage() float64 {
 	used := total - free - buffers - cached
 	return float64(used) / float64(total) * 100
 }
+
+func (s *MetricsService) GetRAMUsageR() float64 {
+	path := fmt.Sprintf("%s/meminfo", s.config.Server.ProcPath)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		s.log.Println("Error reading /proc/meminfo:", err)
+		return 0
+	}
+
+	var total, available uint64
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		key := strings.TrimSuffix(fields[0], ":")
+		val, _ := strconv.ParseUint(fields[1], 10, 64)
+		switch key {
+		case "MemTotal":
+			total = val
+		case "MemAvailable":
+			available = val
+		}
+	}
+
+	if total == 0 {
+		return 0
+	}
+
+	used := total - available
+	return float64(used) / float64(total) * 100
+}
