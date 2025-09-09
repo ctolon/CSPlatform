@@ -1,6 +1,8 @@
 package service
 
 import (
+	"a0/internal/config"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -10,14 +12,16 @@ import (
 
 type MetricsService struct {
 	log zerolog.Logger
+	config *config.Config
 }
 
-func NewMetricsService(log zerolog.Logger) *MetricsService {
-	return &MetricsService{log}
+func NewMetricsService(log zerolog.Logger, config *config.Config) *MetricsService {
+	return &MetricsService{log, config}
 }
 
 func (s *MetricsService) GetCPUUsage(prevIdle, prevTotal uint64) (float64, uint64, uint64) {
-	data, err := os.ReadFile("/proc/stat")
+	path := fmt.Sprintf("%s/stat", s.config.Server.ProcPath)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		s.log.Println("Error reading /proc/stat:", err)
 		return 0, prevIdle, prevTotal
@@ -51,7 +55,8 @@ func (s *MetricsService) GetCPUUsage(prevIdle, prevTotal uint64) (float64, uint6
 }
 
 func (s *MetricsService) GetRAMUsage() float64 {
-	data, err := os.ReadFile("/proc/meminfo")
+	path := fmt.Sprintf("%s/meminfo", s.config.Server.ProcPath)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		s.log.Println("Error reading /proc/meminfo:", err)
 		return 0

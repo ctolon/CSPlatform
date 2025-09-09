@@ -13,6 +13,8 @@ type Config struct {
 		WithTLS  bool   `mapstructure:"with_tls"`
 		Pem      string `mapstructure:"pem"`
 		Key      string `mapstructure:"key"`
+		ProcPath string `mapstructure:"proc_path"`
+
 	} `mapstructure:"server"`
 
 	ContainerTemplate struct {

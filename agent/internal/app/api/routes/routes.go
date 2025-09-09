@@ -124,7 +124,7 @@ func RegisterRoutes(log zerolog.Logger, config *config.Config) (*echo.Echo, *xdi
 	// Agent
 	containerService := service.NewContainerService(cli, config, log)
 	containerHandler := handlers.NewContainerHandler(containerService)
-	metricsService := service.NewMetricsService(log)
+	metricsService := service.NewMetricsService(log, config)
 	metricsHandler := handlers.NewMetricsHandler(metricsService)
 	restClient := adapters.NewRestyClientAdapter()
 	discoveryService := service.NewDiscoveryService(restClient, config, log)
