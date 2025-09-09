@@ -12,6 +12,12 @@ import (
 	"v0/internal/app/adapters"
 )
 
+type SelectedAgent struct {
+	URL   string
+	Info  AgentServiceInfo
+	Score float64
+}
+
 type AgentServiceInfo struct {
 	MainHost      string            `json:"mainHost"`
 	MainHostProto string            `json:"mainHostProto"`
@@ -361,19 +367,20 @@ func (s *AgentService) FetchMetrics(agentURL string) (*FetchMetricsResponse, err
 }
 
 // Select Best Agent for Container Schedule
-func (s *AgentService) AgentLBSelector() (string, error) {
+func (s *AgentService) AgentLBSelector() (*SelectedAgent, error) {
 	ctx := context.Background()
 	agentsData, err := s.RetrieveAllAgentData(ctx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if len(agentsData) == 0 {
-		return "", errors.New("no agents found")
+		return nil, errors.New("no agents found")
 	}
 
 	type agentMetric struct {
 		URL   string
+		Info  AgentServiceInfo
 		Score float64
 		Err   error
 	}
@@ -390,16 +397,16 @@ func (s *AgentService) AgentLBSelector() (string, error) {
 
 			metrics, err := s.FetchMetrics(url)
 			if err != nil {
-				ch <- agentMetric{URL: url, Score: 0, Err: err}
+				ch <- agentMetric{URL: url, Info: agent, Score: 0, Err: err}
 				return
 			}
 
 			score := metrics.CPU + metrics.RAM
-			ch <- agentMetric{URL: url, Score: score, Err: nil}
+			ch <- agentMetric{URL: url, Info: agent, Score: score, Err: nil}
 		}(agent)
 	}
 
-	var selectedURL string
+	var selected *agentMetric
 	minScore := 201.0
 
 	for i := 0; i < len(agentsData); i++ {
@@ -410,16 +417,21 @@ func (s *AgentService) AgentLBSelector() (string, error) {
 		}
 		if am.Score < minScore {
 			minScore = am.Score
-			selectedURL = am.URL
+			selected = &am
 		}
 	}
 
-	if selectedURL == "" {
-		return "", errors.New("failed to select any agent")
+	if selected == nil {
+		return nil, errors.New("failed to select any agent")
 	}
 
-	return selectedURL, nil
+	return &SelectedAgent{
+		URL:   selected.URL,
+		Info:  selected.Info,
+		Score: selected.Score,
+	}, nil
 }
+
 
 func (s *AgentService) RetrieveAllAgentData(ctx context.Context) ([]AgentServiceInfo, error) {
 	pattern := "service:container_service:*"
@@ -452,3 +464,33 @@ func (s *AgentService) RetrieveAllAgentData(ctx context.Context) ([]AgentService
 
 	return agentServices, nil
 }
+
+func (s *AgentService) GetAgentTags(agentURL string) (map[string]any, error) {
+	endpoint := "/api/v1/tags"
+	agentAPI := fmt.Sprintf("%s%s", agentURL, endpoint)
+
+	resp, err := s.restyAdapter.R().
+		SetHeader("Accept", "application/json").
+		SetHeader("X-Agent-Key", s.agentKey).
+		Get(agentAPI)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
+		var bodyStr string
+		if resp.Body() != nil {
+			bodyStr = string(resp.Body())
+		}
+		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode(), bodyStr)
+	}
+
+	// parse JSON
+	var tags map[string]any
+	if err := json.Unmarshal(resp.Body(), &tags); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	return tags, nil
+}
+

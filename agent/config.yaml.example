@@ -14,7 +14,7 @@ container_template:
   environment:
     TZ: Europe/Istanbul
     DEFAULT_WORKSPACE: /config/workspace
-    SUDO_PASSWORD: password  
+    SUDO_PASSWORD: admin  
   sysctls:
     net.ipv6.conf.all.disable_ipv6: "1"
     net.ipv6.conf.default.disable_ipv6: "1"
@@ -56,6 +56,8 @@ agent_metadata:
   region: "default"
   server_url: "http://code-server-proxy-dev:1081"
   x_agent_key: "mBdLdSbs5MTwSCd0imxWyWQ93B0/bNQR1JaVwtSyegy5MvfkmfgC2hnKdBgs4qcTDEBV58x5htuetStGZzm/KQ=="
+  tags:
+    spark_driver_host: 127.0.0.1
 
 secrets:
   jwt_access_key: fgxRi7cwdEtwZvBM4X5mQAk45yy06T7HHxBIRGVCaUA=

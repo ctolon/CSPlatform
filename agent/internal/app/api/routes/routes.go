@@ -129,6 +129,7 @@ func RegisterRoutes(log zerolog.Logger, config *config.Config) (*echo.Echo, *xdi
 	restClient := adapters.NewRestyClientAdapter()
 	discoveryService := service.NewDiscoveryService(restClient, config, log)
 	agent := xdiscovery.NewAgent(config, discoveryService, time.Second*10, log)
+	agentHandler := handlers.NewAgentHandler(config)
 
 	// Proxy Config
 
@@ -189,6 +190,7 @@ func RegisterRoutes(log zerolog.Logger, config *config.Config) (*echo.Echo, *xdi
 	apiGroup.GET("/containers/:name/exist", containerHandler.IsContainerExistHandler)
 	apiGroup.GET("/containers/:name/running", containerHandler.IsContainerRunningHandler)
 	apiGroup.GET("/metrics", metricsHandler.Fetch)
+	apiGroup.GET("/tags", agentHandler.GetTags)
 
 	// /code-server
 	e.Any("/code-server/*",

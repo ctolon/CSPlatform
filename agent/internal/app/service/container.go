@@ -374,7 +374,7 @@ func (s *ContainerService) buildContainerConfig() *container.Config {
 	return containerConfig
 }
 
-func (s *ContainerService) buildHostConfig() *container.HostConfig {
+func (s *ContainerService) buildHostConfig(containerConfig *container.Config) *container.HostConfig {
 	hostConfig := &container.HostConfig{}
 
 	// set sysctls
@@ -382,10 +382,16 @@ func (s *ContainerService) buildHostConfig() *container.HostConfig {
 		hostConfig.Sysctls = flattenSysctls(s.config.ContainerTemplate.Sysctls)
 	}
 
-	// set port binding
 	if len(s.config.ContainerTemplate.Ports) > 0 {
 		if bindings, err := s.buildPortBindings(s.config.ContainerTemplate.Ports); err == nil {
 			hostConfig.PortBindings = bindings
+
+			if containerConfig.ExposedPorts == nil {
+				containerConfig.ExposedPorts = nat.PortSet{}
+			}
+			for port := range bindings {
+				containerConfig.ExposedPorts[port] = struct{}{}
+			}
 		}
 	}
 
@@ -444,7 +450,7 @@ func (s *ContainerService) CreateContainer(req *CreateContainerRequest) (*contai
 	ctx := context.Background()
 	containerName := s.config.ContainerTemplate.ContainerName
 	defaultContainerConfig := s.buildContainerConfig()
-	defaultHostConfig := s.buildHostConfig()
+	defaultHostConfig := s.buildHostConfig(defaultContainerConfig)
 
 	// OVERRIDE
 	// ***************
@@ -475,9 +481,15 @@ func (s *ContainerService) CreateContainer(req *CreateContainerRequest) (*contai
 
 	// set ports
 	if len(req.Ports) > 0 {
-		portBinds, err := s.buildPortBindings(req.Ports)
-		if err == nil {
-			defaultHostConfig.PortBindings = portBinds
+		if bindings, err := s.buildPortBindings(req.Ports); err == nil {
+			defaultHostConfig.PortBindings = bindings
+
+			if defaultContainerConfig.ExposedPorts == nil {
+				defaultContainerConfig.ExposedPorts = nat.PortSet{}
+			}
+			for port := range bindings {
+				defaultContainerConfig.ExposedPorts[port] = struct{}{}
+			}
 		}
 	}
 
@@ -668,7 +680,7 @@ func (s *ContainerService) GetContainerIDByName(name string) (string, error) {
 func (s *ContainerService) GetConfigDefaults() (*ConfigDefaultsResponse, error) {
 	containerName := s.config.ContainerTemplate.ContainerName
 	defaultContainerConfig := s.buildContainerConfig()
-	defaultHostConfig := s.buildHostConfig()
+	defaultHostConfig := s.buildHostConfig(defaultContainerConfig)
 
 	// memory
 	memBytes := defaultHostConfig.Resources.Memory

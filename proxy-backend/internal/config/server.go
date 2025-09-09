@@ -11,4 +11,5 @@ type serverConfig struct {
 	AppCORS          string `mapstructure:"APP_CORS"`
 	AppSessionCookie string `mapstructure:"APP_SESSION_COOKIE"`
 	AppAgentKey      string `mapstructure:"APP_AGENT_KEY"`
+	AppNFSHome       string `mapstructure:"APP_NFS_HOME"`
 }

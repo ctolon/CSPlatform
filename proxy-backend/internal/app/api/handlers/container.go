@@ -79,10 +79,11 @@ func (h *ContainerHandler) ShowFormCreate(c echo.Context) error {
 	}
 
 	// --- Agent LB Selector ---
-	agentURL, err := h.agentService.AgentLBSelector()
+	agentInfo, err := h.agentService.AgentLBSelector()
 	if err != nil {
 		return c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to select agent: %v", err))
 	}
+	agentURL := agentInfo.URL
 
 	// Get All Agents Options
 	ctx := context.Background()
@@ -115,6 +116,11 @@ func (h *ContainerHandler) ShowFormCreate(c echo.Context) error {
 	defaults.AllowEditRestart = h.config.ContainerAllowEditRestart
 	defaults.AllowEditSysctls = h.config.ContainerAllowEditSysctls
 	defaults.AllowEditVolumes = h.config.ContainerAllowEditVolumes
+
+	// add nfs volume
+	if h.config.AppNFSHome != "" {
+		defaults.Volumes = append(defaults.Volumes, fmt.Sprintf("%s/%s:/config", h.config.AppNFSHome, c.Get("username").(string)))
+	}
 
 	// marshall data
 	jsonData, _ := json.Marshal(defaults)
@@ -341,16 +347,31 @@ func (h *ContainerHandler) CreateContainerRequest(c echo.Context) error {
 		}
 	}
 
-	var agentURL string
 	// --- Agent LB Selector ---
+	var agentURL string
 	if strings.ToLower(agentForm) == "auto" {
-		agentURL, err = h.agentService.AgentLBSelector()
+		agentInfo, err := h.agentService.AgentLBSelector()
 		if err != nil {
 			return c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to select agent with LB: %v", err))
+		}
+		agentURL = agentInfo.URL
+		// spark driver host assign
+		if agentInfo.Info.Tags != nil {
+			if sparkDriverHost, ok := agentInfo.Info.Tags["spark_driver_host"]; ok {
+				appendSparkDriverHost(env, sparkDriverHost, "SPARK_SUBMIT_OPTS", "SPARK3_SUBMIT_OPTS")
+			}
 		}
 		// --- Manual Selector ---
 	} else {
 		agentURL = agentForm
+		agentTags, err := h.agentService.GetAgentTags(agentForm)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to create container: %v", err))
+		}
+		// spark driver host assign
+		if sparkDriverHost, ok := agentTags["spark_driver_host"].(string); ok {
+			appendSparkDriverHost(env, sparkDriverHost, "SPARK_SUBMIT_OPTS", "SPARK3_SUBMIT_OPTS")
+		}
 	}
 
 	// Create container with API request on agent
@@ -377,4 +398,11 @@ func (h *ContainerHandler) CreateContainerRequest(c echo.Context) error {
 
 	return c.Redirect(302, "/csplatform/home")
 
+}
+
+func appendSparkDriverHost(env map[string]string, sparkDriverHost string, keys ...string) {
+    for _, key := range keys {
+        prev := env[key]
+        env[key] = strings.TrimSpace(fmt.Sprintf("-Dspark.driver.host=%s %s", sparkDriverHost, prev))
+    }
 }
