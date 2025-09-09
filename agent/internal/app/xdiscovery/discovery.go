@@ -3,6 +3,7 @@ package xdiscovery
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -106,8 +107,14 @@ func (a *Agent) Deregister() error {
 // Start Hearbeat
 func (a *Agent) StartHeartbeat() {
 	ticker := time.NewTicker(a.Interval)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
 	client := &http.Client{
 		Timeout: 30 * time.Second,
+		Transport: tr,
 	}
 	go func() {
 		for {

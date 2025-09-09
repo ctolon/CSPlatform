@@ -1,6 +1,10 @@
 package adapters
 
-import "github.com/go-resty/resty/v2"
+import (
+	"crypto/tls"
+
+	"github.com/go-resty/resty/v2"
+)
 
 type RestyClientAdapter struct {
 	Client *resty.Client
@@ -9,6 +13,7 @@ type RestyClientAdapter struct {
 // NewRestyClientAdapter creates a new resty client adapter
 func NewRestyClientAdapter() *RestyClientAdapter {
 	client := resty.New()
+	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	return &RestyClientAdapter{
 		Client: client,
 	}

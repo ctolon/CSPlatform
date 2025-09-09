@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -258,8 +259,14 @@ func (h *ContainerHandler) CreateContainerRequest(c echo.Context) error {
 
 	// Auto PUID PGID Fetch from PAM API
 	if h.config.PAMAPIUrl != "" {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}
 		client := &http.Client{
 			Timeout: 30 * time.Second,
+			Transport: tr,
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
