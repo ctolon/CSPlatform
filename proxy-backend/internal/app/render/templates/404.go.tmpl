@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{or .Title "404 - Page Not Found"}}</title>
+    <style>
+        :root{
+            --bg:#0f172a;
+            --card:#111827;
+            --text:#e5e7eb;
+            --muted:#9ca3af;
+            --accent:#22c55e;
+            --accent-hover:#16a34a;
+            --border:#1f2937;
+            --shadow: 0 10px 30px rgba(0,0,0,.35);
+        }
+        @media (prefers-color-scheme: light) {
+            :root{
+                --bg:#f8fafc;
+                --card: #ffffff;
+                --text:#0f172a;
+                --muted:#475569;
+                --accent:#16a34a;
+                --accent-hover:#15803d;
+                --border:#e5e7eb;
+                --shadow: 0 8px 24px rgba(2,6,23,.08);
+            }
+        }
+        * {
+            box-sizing: border-box;
+        }
+        html,body {
+            height: 100%;
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            background: radial-gradient(1200px 600px at 50% -10%, rgba(34,197,94,.12), transparent 60%), var(--bg);
+            color: var(--text);
+        }
+        .wrap {
+            min-height: 100%;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+        .card {
+            width: 100%;
+            max-width: 720px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: var(--shadow);
+        }
+        .row {display: grid; gap: 12px;}
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px; margin-bottom: 16px;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(34,197,94,.12);
+            color: var(--accent);
+            border: 1px solid rgba(34,197,94,.35);
+            font-weight: 700;
+            font-size: 18px;
+        }
+        h1 {font-size: 22px; margin: 0;}
+        p {margin: 0; color: var(--muted);}
+        .mono {font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        @media (min-width: 640px) {
+            .grid{grid-template-columns: 1fr 1fr;}
+        }
+        .info {
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            background: rgba(2,26,23,.04);
+        }
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        .btn {
+            appearance: none;
+            border: 1px solid var(--border);
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: var(--card);
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform .06s ease, border-color .15s ease, background .15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            border-color: var(--accent);
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border-color: transparent;
+        }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .muted { color: var(--muted); }
+        .spacer { height: 4px; }
+        .illustration {
+            background: linear-gradient(135deg, rgba(34,197,94,.1), transparent 40%);
+            border: 1px solid var(--border);
+            border-radius: 12px; height: 180px;
+            display: grid; place-items: center;
+        }
+        .foot {
+            margin-top: 14px; font-size: 12px; color: var(--muted);
+            display: flex; gap: 120x; flex-wrap: wrap;
+        }
+        code.kv { background: rgba(2,6,23,.08); padding: 2px 6px; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <main class="wrap">
+        <section class="card">
+            <div class="header">
+                <div class="badge">404</div>
+                <div>
+                    <h1>{{or .Title "Page Not Found"}}</h1>
+                    <p>{{or .Message "The page you are looking for may have been moved, eleted or is temporarily unavailable."}}</p>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="row">
+                    <div class="info">
+                        {{if .FromProxy}}
+                            <div><strong>Host:</strong> <span class="mono">{{with .Host}}{{.}}{{else}}-{{end}}</span></div>
+                            <div class="spacer"></div>
+                            <div><strong>Request Path:</strong> <span class="mono">{{with .RequestPath}}{{.}}{{else}}-{{end}}</span></div>
+                            <div class="spacer"></div>
+                        {{end}}
+                        <div><strong>Request ID:</strong> <span class="mono">{{with .RequestID}}{{.}}{{else}}-{{end}}</span></div>
+                        <div class="spacer"></div>
+                        <div><strong>Details:</strong> <span class="mono">{{with .Details}}{{.}}{{else}}-{{end}}</span></div>
+                    </div>
+
+                    <div class="actions">
+                        {{if .IsLoggedIn}}
+                            <a class="btn btn-primary" href="{{or .ContainerURL "/"}}" rel="nofllow">Return to container</a>
+                            <a class="btn" href="{{or .HomeURL "/csplatform/home"}}">Return to home page</a>
+                        {{else}}
+                            <a class="btn btn-primary" href="/auth/login" rel="nofllow">Return to login page</a>
+                        {{end}}
+                    </div>
+                </div>
+                <div class="illustration">
+                    <svg width="120" height="120" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" opacity=".25" />
+                        <path d="M8 15h8M9 9h6" stroke="currentColor" stroke-width="1.2" />
+                        <path d="M7.5 7.5l9 9" stroke="currentColor" opacity=".35" />
+                    </svg>
+                </div>
+            </div>
+            <div class="foot">
+                <span>Server Response: <code class="kv">404 Not Found</code></span>
+                <span class="muted">Please check the address or use the links above.</span>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

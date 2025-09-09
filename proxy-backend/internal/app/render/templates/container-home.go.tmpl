@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Container Manager</title>
+<style>
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f4f4f9;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 30px;
+}
+.container {
+    background: #fff;
+    padding: 30px 35px;
+    border-radius: 12px;
+    width: 550px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+h2 {
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 22px;
+    text-align: center;
+}
+label {
+    font-weight: 600;
+    margin-top: 10px;
+    display: block;
+    color: #555;
+    font-size: 14px;
+}
+input, select {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 15px;
+    color: #333;
+    padding: 8px 10px;
+    margin: 6px 0;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    transition: all 0.2s ease;
+}
+input[readonly] {
+    background: #f0f0f0;
+    cursor: not-allowed;
+}
+input:focus, select:focus {
+    border-color: #4CAF50;
+    box-shadow: 0 0 3px #4CAF50;
+    outline: none;
+}
+button {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: 0.2s;
+    padding: 8px 10px;
+    margin: 6px 0;
+    border-radius: 6px;
+    font-size: 14px;
+}
+button:hover { background: #45a049; }
+.list-input, .key-value-input {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.list-input input, .key-value-input input {
+    flex: 1;
+    border: 1px solid #bbb;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+.list-input button, .key-value-input button {
+    background: #E53935;
+    border: none;
+    color: white;
+    padding: 0 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+.list-input button:hover, .key-value-input button:hover {
+    background: #D32F2F;
+}
+.add-btn {
+    display: inline-block;
+    background: #2196F3;
+    padding: 6px 12px;
+    margin-bottom: 12px;
+    border: none;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+}
+.add-btn:hover { background: #1976D2; }
+.submit-btn-container {
+    text-align: right;
+    margin-top: 15px;
+}
+.submit-btn-container button {
+    width: auto;
+    padding: 10px 25px;
+    font-size: 15px;
+    border-radius: 8px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+<h2>Create Container</h2>
+<form id="containerForm" method="POST" action="/api/v1/containers/create">
+
+<label>Agent Selection</label>
+<select name="agent">
+  {{ $agent := .Agent }}
+  {{ range .AgentOptions }}
+    <option value="{{ . }}" {{ if eq . $agent }}selected{{ end }}>{{ . }}</option>
+  {{ end }}
+</select>
+
+<label>Image</label>
+<input type="text" name="image" value="{{ .Image }}" {{ if not .AllowEditImage }}readonly{{ end }}>
+
+<label>Container Name</label>
+<input type="text" name="name" value="{{ .Name }}" {{ if not .AllowEditName }}readonly{{ end }}>
+
+<label>Memory</label>
+
+{{ if not .AllowEditMemory }}
+  <input type="text" name="memory" value="{{ .Memory }}" readonly>
+{{ else }}
+  <select name="memory">
+    {{ $mem := .Memory }}
+    {{ range .MemoryOptions }}
+      <option value="{{ . }}" {{ if eq . $mem }}selected{{ end }}>{{ . }}</option>
+    {{ end }}
+  </select>
+{{ end }}
+
+<label>CPU Quota</label>
+{{ if not .AllowEditCPU }}
+  <input type="text" name="cpuQuota" value="{{ .CPUQuota }}" readonly>
+{{ else }}
+  <!-- Editable select -->
+  <select name="cpuQuota">
+    {{ $cpu := .CPUQuota }}
+    {{ range .CPUOptions }}
+      <option value="{{ . }}" {{ if eq . $cpu }}selected{{ end }}>{{ . }}</option>
+    {{ end }}
+  </select>
+{{ end }}
+
+<label>Restart Policy</label>
+<input type="text" name="restart" value="{{ .Restart }}" {{ if not .AllowEditRestart }}readonly{{ end }}>
+
+<label>Network</label>
+<input type="text" name="network" value="{{ .Network }}" {{ if not .AllowEditNetwork }}readonly{{ end }}>
+
+<label>Ports</label>
+<div id="ports-list"></div>
+<button type="button" class="add-btn" {{ if not .AllowEditPorts }}readonly{{ end }} onclick="addListInput('ports-list','ports[]')">+ Add Port</button>
+
+<label>Expose</label>
+<div id="expose-list"></div>
+<button type="button" class="add-btn" {{ if not .AllowEditExpose }}readonly{{ end }} onclick="addListInput('expose-list','expose[]')">+ Add Expose</button>
+
+<label>Volumes</label>
+<div id="volumes-list"></div>
+<button type="button" class="add-btn" {{ if not .AllowEditVolumes }}readonly{{ end }} onclick="addListInput('volumes-list','volumes[]')">+ Add Volume</button>
+
+<label>Extra Hosts</label>
+<div id="extraHosts-list"></div>
+<button type="button" class="add-btn" {{ if not .AllowEditExtraHosts }}readonly{{ end }} onclick="addListInput('extraHosts-list','extraHosts[]')">+ Add Host</button>
+
+<label>Environment Variables</label>
+<div id="env-list"></div>
+<button type="button" class="add-btn" {{ if not .AllowEditEnv }}readonly{{ end }} onclick="addKeyValueInput('env-list','env')">+ Add Env</button>
+
+<label>Sysctls</label>
+<div id="sysctls-list"></div>
+<button type="button" class="add-btn" {{ if not .AllowEditSysctls }}readonly{{ end }} onclick="addKeyValueInput('sysctls-list','sysctls')">+ Add Sysctl</button>
+
+<div class="submit-btn-container">
+    <button type="submit">Create Container</button>
+</div>
+</form>
+</div>
+
+<script>
+function addListInput(containerId, name, value="", allowEdit=true) {
+  const container = document.getElementById(containerId);
+  const div = document.createElement("div");
+  div.className = "list-input";
+  div.innerHTML = `<input type="text" name="${name}" value="${value}" placeholder="Enter value" ${!allowEdit?'readonly':''}>
+                   <button type="button" onclick="this.parentElement.remove()" ${!allowEdit?'readonly':''}>×</button>`;
+  container.appendChild(div);
+}
+
+function addKeyValueInput(containerId, prefix, key="", val="", allowEdit=true) {
+  const container = document.getElementById(containerId);
+  const div = document.createElement("div");
+  div.className = "key-value-input";
+  div.innerHTML = `
+    <input type="text" name="${prefix}_key[]" placeholder="Key" value="${key}" ${!allowEdit?'readonly':''}>
+    <input type="text" name="${prefix}_val[]" placeholder="Value" value="${val}" ${!allowEdit?'readonly':''}>
+    <button type="button" onclick="this.parentElement.remove()" ${!allowEdit?'readonly':''}>×</button>`;
+  container.appendChild(div);
+}
+
+document.getElementById('containerForm').addEventListener('submit', function(e){
+  const inputs = e.target.querySelectorAll('input,select');
+  inputs.forEach(input => {
+    if(input.value.trim() === '') input.removeAttribute('name');
+  });
+});
+
+// Prefill API data
+window.onload = function() {
+
+  const defaults = JSON.parse('{{ .JSON }}');
+  document.querySelectorAll('input[readonly]').forEach(i => i.setAttribute('readonly', true));
+
+  (defaults.ports || []).forEach(v => addListInput('ports-list','ports[]', v, defaults.allowEditPorts));
+  (defaults.expose || []).forEach(v => addListInput('expose-list','expose[]', v, defaults.allowEditExpose));
+  (defaults.volumes || []).forEach(v => addListInput('volumes-list','volumes[]', v, defaults.allowEditVolumes));
+  (defaults.extra_hosts || []).forEach(v => addListInput('extraHosts-list','extraHosts[]', v, defaults.allowEditExtraHosts));
+
+  if(defaults.env) {
+    Object.entries(defaults.env).forEach(([k,v]) => addKeyValueInput('env-list','env',k,v, defaults.allowEditEnv));
+  }
+  if(defaults.sysctls) {
+    Object.entries(defaults.sysctls).forEach(([k,v]) => addKeyValueInput('sysctls-list','sysctls',k,v, defaults.allowEditSysctls));
+  }
+}
+
+</script>
+</body>
+</html>

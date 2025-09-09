@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <style>
+        :root{
+            --bg: #0f172a;
+            --panel: #111827;
+            --muted: #94a3b8;
+            --text: #e5e7eb;
+            --accent: #22d3ee;
+            --accent-2: #60a5fa;
+            --danger: #f87171;
+            --ok: #34d399;
+            --card: #0b1220;
+            --border: #1f2937;
+            --chip: #0ea5e9;
+        }
+        *{box-sizing: border-box;}
+        html,body{height: 100%;}
+        body {
+            margin: 0; background: linear-gradient(180deg,#0b1020,#0a0f1c 60%, #090f1a);
+            color:var(--text); font: 16px/1.5 ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+            -webkit-font-smoothing:antialliased; -moz-osx-font-smoothing: grayscale;
+        }
+        .container{max-width: 1200px; margin:0 auto;padding: 24px;}
+        header{
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; margin-bottom: 18px;
+        }
+        .title{
+            font-size: clamp(22px, 2.5vw, 30px);
+            letter-spacing: .3px; font-weight: 700;
+            background: linear-gradient(90deg, var(--accent),var(--accent-2));
+            -webkit-background-clip: text; background-clip:text; color: transparent;
+        }
+        .toolbar{display: flex; gap: 10px; align-items: center; flex-wrap: wrap;}
+        .btn{
+            background: #0d1528; border: 1px solid var(--border); color:var(--text);
+            padding: 10px 14px; border-radius: 12px; cursor: pointer;
+            transition: .15s tranform ease, .15s background ease, .15s border-color ease;
+        }
+        .btn:hover{transform: translateY(-1px); border-color: #2b3a59;}
+        .btn.primary{background: linear-gradient(90deg, #0ea5e9, #60a5fa); color: #06121f; border: none;}
+        .btn.danger{background: linear-gradient(90deg,#ef4444,#f59e0b); color:#0b0604; border: none;}
+        .btn.ghost{background: transparent; border: 1px dashed #2b3a59;}
+        .search input{
+            outline: none; border: none; background: transparent; color: var(--text); width: 100%;
+        }
+        .grid{display: grid; grid-template-columns: 1fr 2fr; gap: 18px;}
+        @media (max-width: 900px){.grid{grid-template-columns: 1fr;}}
+        .card{
+            background: radial-gradient(1200px 400px at -100px -200px, rgba(34,211,238,.08), transparent 40%) linear-gradient(180deg, rgba(96,165,250,.06), transparent 220px) var(--card);
+            border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,.35);
+        }
+        .card header {
+            padding: 14px 16px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .card .body {padding: 14px 16px;}
+        .session-list{display: flex; flex-direction: column; gap: 10px; max-height: 65vh; overflow: auto; padding-right: 6px;}
+        .session-item{
+            border: 1px solid var(--border); background: #0c1426; border-radius: 12px; padding: 12px;
+            display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer;
+            transition: .15s ease border-color, .15s ease background, .15s ease transform;
+        }
+        .session-id{font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; color: #c7d2fe;}
+        .chip{
+            padding: 4px 10px; border-radius: 999px; background: rgba(14,165,233,.15); color: #7dd3fc;
+            border: 1px solid rgba(125,211,252,.25); font-size: 12px; font-weight: 600;
+        }
+        .empty{color: var(--muted); padding: 12px 4px;}
+
+        table{width: 100%; border-collapse: separate; border-spacing: 0 8px;}
+        th, td{padding: 10px 12px; text-align: left;}
+        th{color:#93c5fd; font-weight: 700; font-size: 13px; letter-spacing: .3px;}
+        tbody tr{ background: #0b1220; border: 1px solid var(--border);}
+        tbody tr td:first-child{border-left: 1px solid var(--border); border-top-left-radius: 10px; border-bottom-left-radius: 10px;}
+        tbody tr td:last-child{border-right: 1px solid var(--border); border-top-right-radius: 10px; border-bottom-left-radius: 10px;}
+        .mono{font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;}
+        .actions{display: flex; gap: 8px; flex-wrap: wrap;}
+        .toast{
+            position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 50;
+        }
+        .toast .t{
+            background-color: #0b1220; border: 1px solid var(--border); padding: 10px 12px; border-radius: 12px;
+            box-shadow: 0 12px 30px rgba(0,0,0,.35);
+        }
+        .muted{color: var(--muted);}
+        .loader{
+            width: 18px; height: 18px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,.2); border-top-color: var(--accent);
+            animation: spin 1s linear infinite; display: inline-block; vertical-align: middle;
+        }
+        @keyframes spin{to{transform: rotate(360deg)}}
+        .row{display: flex; gap: 8px; align-items: center;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="title">Code Server Session Manager</div>
+            <div class="toolbar">
+                <div class="search">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m21 21l-4.35-4.35m1.6-4.15a7.25 7.25 0 11-14.5 0 7.25 7.25 0 0114.5 0z" stroke="#93c5fd" stroke-width="2" stroke-linecap="round"/></svg>
+                    <input id="q" placeholder="Search session..." oninput="filterSessions()"/>
+                </div>
+                <button class="btn" onclick="refreshSessions()">
+                    <span class="row"><span id="refreshSpin" style="display:none" class="loader"></span> Refresh</span>
+                </button>
+                <button class="btn ghost" onclick="toggleAuto()">
+                    <span id="autoLb1">Auto refresh: deactivated</span>
+                </button>
+                <form method="GET" action="/csplatform/home">
+                    <button class="btn ghost" type="submit">Home Page</button>
+                </form>
+            </div>
+        </header>
+
+        <div class="grid">
+            <div class="card">
+                <header>
+                    <div>Active Sessions</div>
+                    <div class="muted" id="sessionCount">0</div>
+                </header>
+                <div class="body">
+                    <div id="sessions" class="session-list"></div>
+                    <div id="emptySessions" class="empty" style="display:none">No active session found.</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <header>
+                    <div>Connections <span id="currentSession" class="chip" style="display:none"></span></div>
+                    <div class="actions">
+                        <button class="btn danger" id="btnCancelAll" onclick="cancelAll()" disabled>Cancel All</button>
+                        <button class="btn" id="btnCloseIdle" onclick="closeIdle()" disabled>Close Idle</button>
+                    </div>
+                </header>
+                <div class="body">
+                    <div id="connsWrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Conn Id</th>
+                                    <th style="width: 220px">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="connsBody"></tbody>
+                        </table>
+                        <div id="emptyConns" class="empty">Select a session.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const API = {
+        listSessions: () =>
+            fetch('/api/v1/sessions').then(r => r.json()),
+
+        listConns: (sid) =>
+            fetch('/api/v1/sessions/conns', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: sid })
+        }).then(r => r.json()),
+        
+        cancelConn: (sid, cid) =>
+            fetch('/api/v1/sessions/cons', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: sid, connId: cid }),
+        }),
+        
+        cancelAll: (sid) =>
+            fetch('/api/v1/sessions', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: sid }),
+        }),
+
+        closeIdle: (sid) =>
+            fetch('/api/v1/sessions/idle', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: sid }),
+        }),
+    };
+
+    let STATE = {
+        sessions: {},
+        filteredIds: [],
+        currentSid: null,
+        auto: false,
+        timer: null,
+    };
+
+    function showToast(msg){
+        let host = document.getElementById('toast');
+        if(!host){
+            host = document.createElement('div');
+            host.id = 'toast';
+            host.className = 'toast';
+            document.body.appendChild(host);
+        }
+        const div = document.createElement('div');
+        div.className = 't'
+        div.textContent = msg;
+        host.appendChild(div);
+        setTimeout(() => {div.remove(); }, 2200);
+    }
+
+    function renderSessions(){
+        const list = document.getElementById('sessions');
+        list.innerHTML = '';
+        const ids = STATE.filteredIds.length ? STATE.filteredIds : Object.keys(STATE.sessions);
+        document.getElementById('sessionCount').textContent = Object.keys(STATE.sessions).length;
+
+        if(ids.length === 0){
+            document.getElementById('emptySessions').style.display = 'block';
+            return;
+        }
+        document.getElementById('emptySessions').style.display = 'none';
+
+        ids.forEach(sid => {
+            const count = STATE.sessions[sid] ?? 0;
+            const item = document.createElement('div');
+            item.className = 'session-item'
+            item.onclick = () => selectSession(sid);
+            item.innerHTML = `
+            <div class="session-id">${sid}</div>
+            <div class="chip">${count} conn </div>
+            `;
+            list.appendChild(item);
+        });
+    }
+
+    function filterSessions(){
+        const q = (document.getElementById('q').value || '').toLowerCase().trim();
+        if(!q){STATE.filteredIds = []; renderSessions(); return; }
+        STATE.filteredIds = Object.keys(STATE.sessions).filter(id => id.toLowerCase().includes(q));
+        renderSessions();
+    }
+
+    async function refreshSessions(){
+        try{
+            document.getElementById('refreshSpin').style.display = 'inline-block';
+            const data = await API.listSessions();
+            STATE.sessions = data || {};
+            renderSessions();
+
+            if(STATE.currentSid && STATE.sessions[STATE.currentSid] !== undefined){
+                await loadConns(STATE.currentSid);
+            } else{
+                clearConns();
+            }
+        } catch(e){
+            showToast('Cannot retrieve list');
+            console.error(e)
+        } finally{
+            document.getElementById('refreshSpin').style.display = 'none';
+        }
+    }
+
+    function toggleAuto(){
+        STATE.auto = !STATE.auto;
+        document.getElementById('autoLb1').textContent = 'Auto refresh: ' + (STATE.auto ? 'Open' : 'Closed');
+        if(STATE.timer) clearInterval(STATE.timer);
+        if(STATE.auto){
+            STATE.timer = setInterval(refreshSessions, 3000);
+            refreshSessions();
+        }
+    }
+
+    function clearConns(){
+        document.getElementById('connsBody').innerHTML = '';
+        document.getElementById('emptyConns').textContent = 'Please select a session.';
+        document.getElementById('currentSession').style.display = 'none';
+        document.getElementById('btnCancelAll').disabled = true;
+        document.getElementById('btnCloseIdle').disabled = true;
+        STATE.currentSid = null;
+    }
+
+    async function selectSession(sid){
+        await loadConns(sid)
+    }
+
+    async function loadConns(sid){
+        try{
+            const res = await API.listConns(sid);
+            STATE.currentSid = sid;
+            const badge = document.getElementById('currentSession');
+            badge.style.display = 'inline-block';
+            badge.textContent = sid;
+
+            const body = document.getElementById('connsBody');
+            body.innerHTML = '';
+            (res.conns || []).forEach(cid => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                <td class="mono">${cid}</td>
+                <td>
+                    <div class="actions">
+                        <button class="btn" onclick="onCancelConn('${sid}', '${cid}')">Cancel</button>
+                        <button class="btn ghost" onclick="copy('${cid}')">Copy ID</button>
+                    </div>
+                </td>
+                `;
+                body.appendChild(tr);
+            });
+            document.getElementById('emptyConns').textContent = (res.conns||[]).length ? '' : 'No active connection found for this session.';
+            document.getElementById('btnCancelAll').disabled = false;
+            document.getElementById('btnCloseIdle').disabled = false;
+        } catch (e) {
+            showToast('Cannot retrieve connection');
+            console.error(e)
+        }
+    }
+
+    async function onCancelConn(sid, cid){
+        try{
+            await API.cancelConn(sid, cid);
+            showToast('Connection cancelled');
+            await refreshSessions();
+            if(STATE.currentSid === sid) await loadConns(sid);
+        } catch(e){
+            console.error(e);
+            showToast('Cancel operation failed');
+        }
+    }
+
+    async function cancelAll(){
+        if(!STATE.currentSid) return;
+        try{
+            await API.cancelAll(STATE.currentSid);
+            showToast('All connections cancelled');
+            await refreshSessions();
+            await loadConns(STATE.currentSid);
+        }catch(e){
+            console.error(e)
+            showToast('Cancel All operation failed')
+        }
+    }
+
+    async function closeIdle() {
+        if(!STATE.currentSid) return;
+        try{
+            await API.closeIdle(STATE.currentSid);
+            showToast('Idle connections closed');
+        }catch(e){
+            console.error(e);
+            showToast('Close idle connections operation failed');
+        }
+    }
+
+    async function copy(text){
+        try{
+            await navigator.clipboard.writeText(text);
+            showToast('Copied');
+        }catch(e){
+            console.error(e)
+            showToast("Copy failed")
+        }
+    }
+
+    refreshSessions();
+
+</script>
+    
+</body>
+</html>

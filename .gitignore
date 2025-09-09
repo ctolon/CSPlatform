@@ -1,0 +1,16 @@
+.docker
+.history
+
+private.key
+server_certificate.pem
+
+docker-compose.yml
+dev-compose.yml
+krb5.conf
+
+*.ldif
+
+pip.conf
+pip3.conf
+
+old/

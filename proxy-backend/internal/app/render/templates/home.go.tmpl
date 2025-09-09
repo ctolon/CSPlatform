@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSPlatform Home</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 380px;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-align: center;
+            color: white;
+        }
+        .status .created-at {
+            display: block;       
+            margin-top: 6px;       
+            font-size: 0.85em;     
+            color: #eee;           
+            font-weight: bold;  
+        }
+        .status .agent-host {
+            display: block;       
+            margin-top: 4px;
+            font-size: 0.9em;
+            font-weight: bold;
+            color: #eee;        
+        }
+        .running { background-color: #28a745; }
+        .stopped { background-color: #ffc107; color: black; }
+        .nocontainer { background-color: #17a2b8; }
+        input, button, a.btn {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        button, a.btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+        button:hover, a.btn:hover {
+            background: #45a049;
+        }
+        .danger { background-color: #dc3545; }
+        .warning { background-color: #ffc107; color: black; }
+        .info { background-color: #17a2b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Open Code Server {{.Username}}</h2>
+
+        {{if .HasContainer}}
+            {{if .IsContainerRunning}}
+                <div class="status running">✔ Container is Running
+                    <div class="agent-host">Host: {{.AgentHost}}</div>
+                    <div class="created-at">Created at: {{.CreatedAt}}</div>
+                </div>
+            {{else}}
+                <div class="status stopped">⚠ Container is Stopped
+                     <div class="agent-host">Host: {{.AgentHost}}</div>
+                     <div class="created-at">Created at: {{.CreatedAt}}</div>
+                </div>
+            {{end}}
+        {{else}}
+            <div class="status nocontainer">INFO: No Container Created Yet</div>
+        {{end}}
+
+        {{if .HasContainer}}
+            <form method="POST" action="/csplatform/containers/delete">
+                <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
+                <button type="submit" class="danger">Remove Your Container</button>
+            </form>
+
+            {{if .IsContainerRunning}}
+                <form method="GET" action="/code-server/" target="_blank" rel="noopener noreferrer">
+                    <button type="submit">Connect To Your Container</button>
+                </form>
+                <form method="POST" action="/csplatform/containers/stop">
+                    <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
+                    <button type="submit" class="warning">Stop Your Container</button>
+                </form>
+                <form method="POST" action="/csplatform/containers/restart">
+                    <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
+                    <button type="submit">Restart Your Container</button>
+                </form>
+            {{else}}
+                <form method="POST" action="/csplatform/containers/start">
+                    <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
+                    <button type="submit" class="running">Start Your Container</button>
+                </form>
+            {{end}}
+        {{else}}
+            <form method="GET" action="/csplatform/containers/create" target="_blank" rel="noopener noreferrer">
+                <button type="submit" class="info">Create a Container</button>
+            </form>
+        {{end}}
+
+        {{ if contains .Groups .AdminGroup }}
+            <a href="/admin/code-server-sessions" target="_blank" rel="noopener noreferrer" class="btn">Go to Code Server Sessions Panel</a>
+            <a href="/redisinsight/ui/" target="_blank" rel="noopener noreferrer" class="btn">Go to RedisInsight UI</a>
+        {{end}}
+
+        <form method="POST" action="/auth/logout">
+            <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
+            <button type="submit">Logout from Your Account</button>
+        </form>
+    </div>
+</body>
+</html>

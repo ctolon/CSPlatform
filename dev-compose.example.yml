@@ -1,0 +1,106 @@
+networks:
+  codeserver_net:
+    external:
+      true
+
+services:
+  code-server-proxy-dev:
+    image: code-server-proxy-dev:latest
+    container_name: code-server-proxy-dev
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
+      - net.ipv4.tcp_keepalive_time=60
+      - net.ipv4.tcp_keepalive_intvl=10
+      - net.ipv4.tcp_keepalive_probes=5
+    build:
+      context: ./proxy-backend
+      dockerfile: dev.Dockerfile
+      args:
+        - UID=1000
+        - GID=1000
+        - USERNAME=ctolon
+    hostname: localhost
+    working_dir: /app
+    stdin_open: true
+    networks:
+      codeserver_net:
+        ipv4_address: 172.71.0.120
+    restart: unless-stopped
+    volumes:
+      - ./proxy-backend:/app/
+    ports:
+      - 1081:1081
+
+  code-server-agent-dev:
+    image: code-server-agent-dev:latest
+    container_name: code-server-agent-dev
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
+      - net.ipv4.tcp_keepalive_time=60
+      - net.ipv4.tcp_keepalive_intvl=10
+      - net.ipv4.tcp_keepalive_probes=5
+    build:
+      context: ./agent
+      dockerfile: dev.Dockerfile
+      args:
+        - UID=1000
+        - GID=1000
+        - USERNAME=ctolon
+    hostname: localhost
+    working_dir: /app
+    stdin_open: true
+    networks:
+      codeserver_net:
+        ipv4_address: 172.71.0.123
+    restart: unless-stopped
+    volumes:
+      - ./agent:/app/
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - 3033:3033
+
+  # cn=admin,dc=homelab,dc=local
+  # ldapadd -Y EXTERNAL -H ldapi:/// -f memberof.ldif
+  # ldapadd -Y EXTERNAL -H ldapi:/// -f bootstrap.ldif
+  # ldapadd -Y EXTERNAL -H ldapi:/// -f <file>
+  # ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=config" "(olcOverlay=memberof)"
+  # ldapsearch -x -D "cn=admin,dc=homelab,dc=local" -w admin -b "uid=peter.schmidt,ou=Marketing,dc=homelab,dc=local"
+  # https://www.adimian.com/blog/how-to-enable-memberof-using-openldap/
+  openldap:
+    image: osixia/openldap:latest
+    container_name: openldap
+    environment:
+      LDAP_BASE_DN: "dc=homelab,dc=local"
+      LDAP_ORGANISATION: "Example Organization"
+      LDAP_DOMAIN: "homelab.local"
+      LDAP_ADMIN_PASSWORD: "admin"
+      LDAP_CONFIG_PASSWORD: config
+      LDAP_TLS: "false"
+      #LDAP_CUSTOM_LDIF_DIR: /container/service/slapd/assets/config/bootstrap/ldif/custom
+    #volumes:
+      #- ./custom-ldiff/bootstrap.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/50-bootstrap.ldif
+    ports:
+      - "389:389"   
+      - "636:636"                # default port for unsecured LDAP
+    command: --copy-service
+    restart: unless-stopped
+    networks:
+      codeserver_net:
+        ipv4_address: 172.71.0.121
+
+  phpldapadmin:
+    image: osixia/phpldapadmin:latest
+    container_name: phpldapadmin
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: openldap
+      PHPLDAPADMIN_HTTPS: "false"   # deactivate HTTPS
+    ports:
+      - "8060:80"
+    restart: unless-stopped
+    depends_on:
+      - openldap
+    networks:
+      codeserver_net:
+        ipv4_address: 172.71.0.122

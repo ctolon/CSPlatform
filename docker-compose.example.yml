@@ -1,0 +1,151 @@
+version: "3.0"
+
+networks:
+  codeserver_net:
+    external:
+      true
+
+x-code-server-common:
+  &code-server-common
+  image: csplatform-env/py-jdk-8:latest
+  sysctls:
+    &code-server-common-sysctls
+    - net.ipv6.conf.all.disable_ipv6=1
+    - net.ipv6.conf.default.disable_ipv6=1
+    - net.ipv4.tcp_keepalive_time=60
+    - net.ipv4.tcp_keepalive_intvl=10
+    - net.ipv4.tcp_keepalive_probes=5
+  build:
+    context: .
+    dockerfile: Dockerfile.full
+  environment:
+    &code-server-common-env
+    TZ: Europe/Istanbul
+    DEFAULT_WORKSPACE: /config/workspace
+    SUDO_PASSWORD: admin
+  expose:
+    &code-server-common-expose
+    - 8443
+    - 80
+    - 443
+    - 3000
+    - 5000
+    - 8000
+    - 8080
+    - 8081
+    - 8082
+    - 9000
+  restart: unless-stopped
+  mem_limit: 8192m
+  cpus: 4
+
+services:
+  code-server-proxy:
+    image: code-server-proxy:latest
+    container_name: code-server-proxy
+    sysctls: *code-server-common-sysctls
+    build:
+      context: ./proxy-backend
+      dockerfile: Dockerfile
+      args:
+        - CMD_PATH=cmd/server
+        - APP_NAME=server
+        - GIT_SHA=manual
+    hostname: localhost
+    working_dir: /app
+    stdin_open: true
+    user: root
+    networks:
+      codeserver_net:
+        ipv4_address: 172.71.0.2
+    restart: unless-stopped
+    volumes:
+      - ./proxy-backend/.env/app/.env
+    command: ./server -config .env
+    ports:
+      - 1080:1080
+
+  code-server-agent:
+    image: code-server-agent:latest
+    container_name: code-server-agent
+    sysctls: *code-server-common-sysctls
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+      args:
+        - CMD_PATH=cmd/server
+        - APP_NAME=server
+        - GIT_SHA=manual
+    hostname: localhost
+    working_dir: /app
+    stdin_open: true
+    user: root
+    networks:
+      codeserver_net:
+        ipv4_address: 172.71.0.150
+    restart: unless-stopped
+    volumes:
+      - ./agent/config.yaml:/app/config.yaml
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - 3033:3033
+    
+
+  code-server-redis:
+    image: redis:8.2.1
+    container_name: code-server-redis
+    user: root
+    sysctls: 
+      net.core.somaxconn: "65536"
+    command: redis-server --requirepass password --save 60 1 --loglevel warning --tcp-backlog 65536 --maxmemory 8000000000
+    restart: always
+    expose:
+      - 6379
+    networks:
+      codeserver_net:
+        ipv4_address: 172.71.0.230
+    mem_limit: 12288m
+    cpus: 4
+
+  code-server-redis-insight:
+    image: redis/redisinsight:2.70.1
+    container_name: code-server-redis-insight
+    restart: always
+    environment:
+      RI_APP_PORT: "5540"
+      RI_APP_HOST: 0.0.0.0
+      RI_PROXY_PATH: "/redisinsight/ui"
+      RI_LOG_LEVEL: "error"
+      RI_STDOUT_LOGGER: "true"
+      RI_DATABASE_MANAGEMENT: "false"
+
+      RI_REDIS_HOST0: "code-server-redis"
+      RI_REDIS_PORT0: 6379
+      RI_REDIS_USERNAME0: "default"
+      RI_REDIS_PASSWORD0: "password"
+      RI_REDIS_ALIAS0: "Cache"
+      RI_REDIS_TLS0: "FALSE"
+    networks:
+      codeserver_net:
+        ipv4_address: 172.71.0.231
+    expose:
+      - 5540
+    ports:
+      - 5540:5540
+    depends_on:
+      - code-server-redis
+    mem_limit: 12228m
+    cpus: 4
+
+  code-server-ctolon:
+    <<: *code-server-common
+    container_name: code-server-ctolon
+    sysctls: *code-server-common-sysctls
+    networks:
+      codeserver_net:
+        ipv4_address: 172.71.0.3
+    environment:
+      <<: *code-server-common-env
+      PUID: 1000
+      PGID: 1000
+    expose: *code-server-common-expose

@@ -1,0 +1,47 @@
+server:
+  host: "0.0.0.0"
+  port: 3033
+  log_level: info
+  with_tls: false
+  pem: ""
+  key: ""
+
+
+container_template:
+  image_name: csplatform-env/py-jdk-8:latest
+  container_name: code-server-%s
+  restart: unless-stopped
+  environment:
+    TZ: Europe/Istanbul
+    DEFAULT_WORKSPACE: /config/workspace
+    SUDO_PASSWORD: password  
+  sysctls:
+    net.ipv6.conf.all.disable_ipv6: "1"
+    net.ipv6.conf.default.disable_ipv6: "1"
+    net.ipv4.tcp_keepalive_time: "60"
+    net.ipv4.tcp_keepalive_intvl: "10"
+    net.ipv4.tcp_keepalive_probes: "5"
+  expose:
+    - 8443
+  mem_limit: "8192m"
+  cpus: 4
+  extra_host:
+    - "example.com  example:10.0.0.1"
+    - "example2.com example2:10.0.0.2"
+  volumes:
+    - /test:/test
+  networks:
+    codeserver_net: "" # dummy identifier
+  ports:
+    - "8080:8080"
+
+agent_metadata:
+  instance_id: "87e3b4fb-572d-428f-baec-df179937ebaa"
+  service_name: "container_service"
+  main_host: "code-server-agent-dev:3033"
+  main_host_proto: "http"
+  host_port: "code-server-agent-dev:3033"
+  host_port_proto: "http"
+  version: "1"
+  region: "default"
+  serverURL: "code-server-proxy-dev"

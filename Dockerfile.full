@@ -1,0 +1,111 @@
+FROM lscr.io/linuxserver/code-server:4.103.2
+
+# System-wide packages
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y \
+    curl wget ssh vim nano git ca-certificates build-essential \
+    openssh-client gnupg unzip zip xz-utils \
+    rsync coreutils procps \
+    software-properties-common gcc gcc-9 \
+    python-is-python3 python3.12-venv python3.12-dev \
+    krb5-user libcurl4-openssl-dev libkrb5-dev
+
+# Python deps
+RUN apt-get install -y \
+    libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev \
+    libffi-dev liblzma-dev tk-dev libdb-dev libncursesw5-dev \
+    libgdbm-dev libc6-dev uuid-dev
+
+# Install Python 3.6.8 (only works gcc-10 or lower)
+WORKDIR /opt
+RUN wget https://python.org/ftp/python/3.6.8/Python-3.6.8.tgz && \
+    tar -xzf Python-3.6.8.tgz && \
+    cd Python-3.6.8 && \
+    CC="gcc-9" ./configure --enable-optimizations &&  \
+    make -j 8 && \
+    make altinstall && \
+    cd .. && \
+    rm -rf Python-3.6.8.tgz
+
+# Install Python 3.7.8
+WORKDIR /opt
+RUN wget https://python.org/ftp/python/3.7.8/Python-3.7.8.tgz && \
+    tar -xzf Python-3.7.8.tgz && \
+    cd Python-3.7.8 && \
+    ./configure --enable-optimizations &&  \
+    make -j 8 && \
+    make altinstall && \
+    cd .. && \
+    rm -rf Python-3.7.8.tgz
+
+# Install Python 3.8.17
+WORKDIR /opt
+RUN wget https://python.org/ftp/python/3.8.17/Python-3.8.17.tgz && \
+    tar -xzf Python-3.8.17.tgz && \
+    cd Python-3.8.17 && \
+    ./configure --enable-optimizations &&  \
+    make -j 8 && \
+    make altinstall && \
+    cd .. && \
+    rm -rf Python-3.8.17.tgz
+
+# Install Python 3.9.17
+WORKDIR /opt
+RUN wget https://python.org/ftp/python/3.9.17/Python-3.9.17.tgz && \
+    tar -xzf Python-3.9.17.tgz && \
+    cd Python-3.9.17 && \
+    ./configure --enable-optimizations &&  \
+    make -j 8 && \
+    make altinstall && \
+    cd .. && \
+    rm -rf Python-3.9.17.tgz
+
+# Install Python 3.10.7
+WORKDIR /opt
+RUN wget https://python.org/ftp/python/3.10.7/Python-3.10.7.tgz && \
+    tar -xzf Python-3.10.7.tgz && \
+    cd Python-3.10.7 && \
+    ./configure --enable-optimizations &&  \
+    make -j 8 && \
+    make altinstall && \
+    cd .. && \
+    rm -rf Python-3.10.7.tgz
+
+# Install Python 3.11.12
+WORKDIR /opt
+RUN wget https://python.org/ftp/python/3.11.12/Python-3.11.12.tgz && \
+    tar -xzf Python-3.11.12.tgz && \
+    cd Python-3.11.12 && \
+    ./configure --enable-optimizations &&  \
+    make -j 8 && \
+    make altinstall && \
+    cd .. && \
+    rm -rf Python-3.11.12.tgz
+
+# Install Python 3.13.7
+WORKDIR /opt
+RUN wget https://python.org/ftp/python/3.13.7/Python-3.13.7.tgz && \
+    tar -xzf Python-3.13.7.tgz && \
+    cd Python-3.13.7 && \
+    ./configure --enable-optimizations &&  \
+    make -j 8 && \
+    make altinstall && \
+    cd .. && \
+    rm -rf Python-3.13.7.tgz
+
+WORKDIR /
+
+# Set Timezone
+# ENV TZ="Europe/Istanbul"
+# RUN ln -fs /usr/share/zoneinfo/Europe/Istanbul /etc/localtime && \
+#    dpkg-reconfigure -f noninteractive tzdata
+
+# Extras
+RUN apt-get install openjdk-8-jdk -y
+ENV JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64
+
+# Python env vars
+ENV PYTHONDONTWRITEBYTECODE=0 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONIOENCODING=utf-8
+
