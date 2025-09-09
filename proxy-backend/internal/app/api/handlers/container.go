@@ -52,6 +52,7 @@ type ContainerFormData struct {
 }
 
 type ContainerHandler struct {
+	userInfoService *service.UserInfoService
 	tmpl         *template.Template
 	agentService *service.AgentService
 	log          zerolog.Logger
@@ -60,13 +61,14 @@ type ContainerHandler struct {
 }
 
 func NewContainerHandler(
+	userInfoService *service.UserInfoService,
 	tmpl *template.Template,
 	agentService *service.AgentService,
 	log zerolog.Logger,
 	reg *service.ContainerRegistryService,
 	config *config.AppConfig,
 ) *ContainerHandler {
-	return &ContainerHandler{tmpl, agentService, log, reg, config}
+	return &ContainerHandler{userInfoService, tmpl, agentService, log, reg, config}
 }
 
 func (h *ContainerHandler) ShowFormCreate(c echo.Context) error {
@@ -302,6 +304,11 @@ func (h *ContainerHandler) CreateContainerRequest(c echo.Context) error {
 		env["PGID"] = strconv.Itoa(info.GID)
 	}
 
+	if userInfo, err := h.userInfoService.GetUserGroupInfo(c.Get("username").(string)); err == nil{
+		env["PUID"] = userInfo.UID
+		env["PGID"] = userInfo.GID
+	}
+
 	if env["PUID"] == "" {
 		return c.JSON(http.StatusUnprocessableEntity, echo.Map{
 			"Error": "PUID env variable is required",
@@ -366,6 +373,7 @@ func (h *ContainerHandler) CreateContainerRequest(c echo.Context) error {
 		if agentInfo.Info.Tags != nil {
 			if sparkDriverHost, ok := agentInfo.Info.Tags["spark_driver_host"]; ok {
 				appendSparkDriverHost(env, sparkDriverHost, "SPARK_SUBMIT_OPTS", "SPARK3_SUBMIT_OPTS")
+				appendSparkDriverBindAddress(env, "SPARK_SUBMIT_OPTS", "SPARK3_SUBMIT_OPTS")
 			}
 		}
 		// --- Manual Selector ---
@@ -378,6 +386,7 @@ func (h *ContainerHandler) CreateContainerRequest(c echo.Context) error {
 		// spark driver host assign
 		if sparkDriverHost, ok := agentTags["spark_driver_host"].(string); ok {
 			appendSparkDriverHost(env, sparkDriverHost, "SPARK_SUBMIT_OPTS", "SPARK3_SUBMIT_OPTS")
+			appendSparkDriverBindAddress(env, "SPARK_SUBMIT_OPTS", "SPARK3_SUBMIT_OPTS")
 		}
 	}
 
@@ -411,5 +420,12 @@ func appendSparkDriverHost(env map[string]string, sparkDriverHost string, keys .
     for _, key := range keys {
         prev := env[key]
         env[key] = strings.TrimSpace(fmt.Sprintf("-Dspark.driver.host=%s %s", sparkDriverHost, prev))
+    }
+}
+
+func appendSparkDriverBindAddress(env map[string]string, keys ...string) {
+    for _, key := range keys {
+        prev := env[key]
+        env[key] = strings.TrimSpace(fmt.Sprintf("-Dspark.driver.bindAddress=0.0.0.0 %s", prev))
     }
 }

@@ -105,7 +105,8 @@ func RegisterRoutes(log zerolog.Logger, config *config.AppConfig, tmpl *template
 	errorHandlerSvc := service.NewErrorHandlerService("/csplatform/404")
 	e.HTTPErrorHandler = errorHandlerSvc.GlobalHTTPErrorHandler()
 
-	containerHandler := handlers.NewContainerHandler(tmpl, agentService, log, containerRegService, config)
+	userInfoSvc := service.NewUserInfoService()
+	containerHandler := handlers.NewContainerHandler(userInfoSvc, tmpl, agentService, log, containerRegService, config)
 
 	// /api/v1
 	codeServerSessionHandler := handlers.NewCodeServerSessionHandler(codeServerSessions, tmpl)
