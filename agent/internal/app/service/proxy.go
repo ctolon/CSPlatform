@@ -118,12 +118,12 @@ func (h *ProxyService) BaseTransportInit(base bool) *http.Transport {
 				CipherSuites:       constants.TLSCiphers,
 			},
 			DialContext: (&net.Dialer{
-				Timeout:   120 * time.Second,
-				KeepAlive: 120 * time.Second,
+				Timeout:   600 * time.Second,
+				KeepAlive: 0 * time.Second,
 			}).DialContext,
 			TLSNextProto:        make(map[string]func(string, *tls.Conn) http.RoundTripper),
-			MaxIdleConns:        100,
-			IdleConnTimeout:     600 * time.Second,
+			MaxIdleConns:        500,
+			IdleConnTimeout:     0 * time.Second,
 			TLSHandshakeTimeout: 20 * time.Second,
 		}
 	}
