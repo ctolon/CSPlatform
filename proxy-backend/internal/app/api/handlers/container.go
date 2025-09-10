@@ -280,6 +280,8 @@ func (h *ContainerHandler) CreateContainerRequest(c echo.Context) error {
 			})
 		}
 
+		req.Header.Set("X-Api-Key", h.config.PAMAuthAPIKey)
+
 		resp, err := client.Do(req)
 		if err != nil {
 			return c.JSON(500, echo.Map{
