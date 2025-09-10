@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
@@ -184,6 +185,10 @@ func RegisterRoutes(log zerolog.Logger, config *config.AppConfig, tmpl *template
 		config.AppWithTLS,
 	)
 	e.Any("/code-server/*", ph.EchoHandler(codeServerSessions), jwtMiddlewareForProxy)
+
+	e.GET("/", func(c echo.Context) error {
+		return c.Redirect(http.StatusMovedPermanently, "/csplatform/home")
+	})
 
 	janitorCtx, _ := context.WithCancel(context.Background())
 	codeServerSessions.StartJanitor(janitorCtx, 10*time.Second)
