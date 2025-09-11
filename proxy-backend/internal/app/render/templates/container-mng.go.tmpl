@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Container & Service Panel</title>
+<style>
+:root{
+    --bg: #0f172a;
+    --panel: #111827;
+    --muted: #94a3b8;
+    --text: #e5e7eb;
+    --accent: #22d3ee;
+    --accent-2: #60a5fa;
+    --danger: #f87171;
+    --ok: #34d399;
+    --card: #0b1220;
+    --border: #1f2937;
+    --chip: #0ea5e9;
+}
+table th, table td {
+    min-width: 140px;
+    word-break: keep-all;
+    white-space: nowrap;
+}
+*{box-sizing:border-box;}
+body{margin:0; background: linear-gradient(180deg,#0b1020,#0a0f1c 60%, #090f1a); color:var(--text); font:16px/1.5 ui-sans-serif, sans-serif;}
+.container {
+    max-width: 1400px; /* Daha geniş alan için */
+    margin: 0 auto 0 0; /* Sola yasla, sağda boşluk bırak */
+    padding: 24px;
+}
+h1{font-size:24px;margin-bottom:16px;color:var(--accent);}
+table{width:100%;border-collapse:separate;border-spacing:0 8px;}
+th, td{padding:12px;text-align:left;}
+th{color:#93c5fd;font-weight:700;font-size:13px;letter-spacing:.3px;}
+tbody tr{background:var(--card);border:1px solid var(--border);}
+tbody tr td:first-child{border-left:1px solid var(--border);border-top-left-radius:10px;border-bottom-left-radius:10px;}
+tbody tr td:last-child{border-right:1px solid var(--border);border-top-right-radius:10px;border-bottom-left-radius:10px;}
+button{padding:6px 12px;border-radius:8px;border:none;cursor:pointer;font-size:13px;transition:.15s ease;}
+button.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#06121f;}
+button.danger{background:linear-gradient(90deg,var(--danger),#fbbf24);color:#0b0604;}
+button.ghost{background:transparent;border:1px dashed #2b3a59;color:var(--text);}
+.metrics{font-size:12px;color:var(--muted);}
+.actions{display:flex;gap:24px;flex-wrap: nowrap;}
+.toast{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:50;}
+.toast .t{background-color: var(--panel); border:1px solid var(--border); padding:10px 12px; border-radius:12px; box-shadow:0 12px 30px rgba(0,0,0,.35);}
+.mono{font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:13px;}
+.home-btn{margin-bottom:20px; padding:6px 12px; border-radius:8px; background: var(--accent); color:#06121f; text-decoration:none; display:inline-block;}
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>Container Manager</h1>
+<div class="container">
+    <a href="/csplatform/home" class="home-btn">Return to Home Page</a>
+    <table>
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Container Name</th>
+                <th>Agent Host</th>
+                <th>Created At</th>
+                <th>Status</th>
+                <th>Metrics</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {{range .Containers}}
+        <tr id="container-{{.ContainerName}}" data-agent-url="{{.AgentHost}}">
+            <td>{{.User}}</td>
+            <td>{{.ContainerName}}</td>
+            <td>{{.AgentHost}}</td>
+            <td>{{.CreatedAt}}</td>
+            <td class="status" id="status-container-{{.User}}">Loading...</td>
+            <td class="metrics" id="metrics-container-{{.ContainerName}}">Loading...</td>
+            <td class="actions">
+                <button class="primary container-btn" data-action="start" data-username="{{.User}}" data-csrf="{{$.CSRFToken}}">Start</button>
+                <button class="ghost container-btn" data-action="stop" data-username="{{.User}}" data-csrf="{{$.CSRFToken}}">Stop</button>
+                <button class="ghost container-btn" data-action="restart" data-username="{{.User}}" data-csrf="{{$.CSRFToken}}">Restart</button>
+                <button class="danger container-btn" data-action="remove" data-username="{{.User}}" data-csrf="{{$.CSRFToken}}">Remove</button>
+            </td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+
+    <h1>Service Agents</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Instance ID</th>
+                <th>Host</th>
+                <th>Tags</th>
+                <th>Metrics</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {{range .Services}}
+        <tr id="agent-{{.MainHost}}" data-agent-url="{{.MainHostProto}}://{{.MainHost}}">
+            <td>{{.InstanceID}}</td>
+            <td>{{.MainHostProto}}://{{.MainHost}}</td>
+            <td>
+                {{range $k,$v := .Tags}}
+                    <span class="mono">{{$k}}: {{$v}}</span><br>
+                {{end}}
+            </td>
+            <td class="metrics" id="metrics-agent-{{.MainHostProto}}://{{.MainHost}}">Loading...</td>
+            <td class="actions">
+                <button class="danger agent-btn" data-instanceid="{{.InstanceID}}">Deregister</button>
+            </td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+</div>
+
+<script>
+
+    
+async function refreshContainers(){
+  try {
+    const res = await fetch("/api/v1/containers");
+    if(!res.ok) throw new Error("Failed to fetch containers");
+    const data = await res.json();
+
+    data.forEach(c => {
+      let row = document.getElementById(`container-${c.ContainerName}`);
+      if(row){
+        // Güncel metrikler veya status alanını güncelle
+        row.querySelector(".status").innerHTML = 
+          c.running ? `<span style="color:var(--ok);">Running</span>` : `<span style="color:var(--danger);">Stopped</span>`;
+      } else {
+        // Yeni container varsa tabloya ekle
+        // (gerekirse burada createRow fonksiyonu yaz)
+      }
+    });
+  } catch (err){
+    console.error("Container refresh failed:", err);
+  }
+}
+
+async function refreshServices(){
+  try {
+    const res = await fetch("/api/v1/services");
+    if(!res.ok) throw new Error("Failed to fetch services");
+    const data = await res.json();
+
+    data.forEach(s => {
+      let row = document.getElementById(`agent-${s.MainHost}`);
+      if(row){
+        row.querySelector(".metrics").innerHTML = 
+          `CPU: ${s.cpu_percent_str}, RAM: ${s.ram_percent_str}`;
+      }
+    });
+  } catch (err){
+    console.error("Service refresh failed:", err);
+  }
+}
+
+setInterval(refreshContainers, 10000);
+setInterval(refreshServices, 10000);
+
+document.querySelectorAll(".agent-btn").forEach(btn => {
+    btn.addEventListener("click", async e => {
+        const instanceID = btn.dataset.instanceid;
+        const serviceName = 'container_service';
+
+        try {
+            const res = await fetch('/api/v1/discovery/deregister', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ instanceID, serviceName })
+            });
+            console.log(res.body);
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw data;
+            }
+
+            const data = await res.json();
+            showToast(data.message || "Deregistered successfully", true);
+
+            // Row'u kaldırmak istersen
+            const row = btn.closest('tr');
+            if(row) row.remove();
+
+        } catch (err) {
+            console.error(err);
+            showToast(err.error || "Request failed", false);
+        }
+    });
+});
+
+
+document.querySelectorAll(".container-btn").forEach(btn => {
+    btn.addEventListener("click", async e => {
+        const action = btn.dataset.action;
+        const username = btn.dataset.username;
+        const csrf = btn.dataset.csrf;
+
+        try {
+            const res = await fetch(`/api/v1/containers/${action}/${username}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-Token": csrf
+                },
+                body: JSON.stringify({ name: username })
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw data;
+            }
+
+            const data = await res.json();
+            showToast(data.message || "Success", true);
+
+            // Burada tüm actionlar sonrası status hemen güncellenecek
+            updateContainerStatus(username);
+        } catch (err) {
+            console.error(err);
+            showToast(err.error || "Request failed", false);
+            updateContainerStatus(username);
+        }
+    });
+});
+
+function showToast(msg){
+    let host = document.getElementById('toast');
+    if(!host){
+        host = document.createElement('div');
+        host.id='toast';
+        host.className='toast';
+        document.body.appendChild(host);
+    }
+    const div = document.createElement('div');
+    div.className='t';
+    div.textContent=msg;
+    host.appendChild(div);
+    setTimeout(()=>div.remove(),2200);
+}
+
+function updateContainerStatus(username){
+    fetch(`/api/v1/containers/is-running/${username}`)
+        .then(res=>res.json())
+        .then(data=>{
+            const elem=document.getElementById(`status-container-${username}`);
+            if(elem){
+                elem.innerHTML=data.running?
+                    `<span style="color:var(--ok);font-weight:600;">Running</span>`:
+                    `<span style="color:var(--danger);font-weight:600;">Stopped</span>`;
+            }
+        }).catch(err=>{
+            const elem=document.getElementById(`status-container-${username}`);
+            if(elem) elem.innerHTML=`<span style="color:var(--danger)">Error</span>`;
+            console.error(err);
+        });
+}
+
+function updateMetricsContainer(name,url){
+    fetch(`/csplatform/containers/container/${name}/${encodeURIComponent(url)}/metrics`)
+    .then(res=>res.json())
+    .then(data=>{
+        const elem=document.getElementById(`metrics-container-${name}`);
+        if(elem){
+            elem.innerHTML=`CPU: ${data.cpu_percent}%, RAM: ${data.memory_usage}/${data.memory_limit}GB` ;
+        }
+    }).catch(err=>{
+        const elem=document.getElementById(`metrics-container-${name}`);
+        if(elem) elem.innerHTML="Error fetching metrics";
+        console.error(err);
+    });
+}
+
+function updateMetricsAgent(url){
+    fetch(`/csplatform/containers/agent/${encodeURIComponent(url)}/metrics`)
+    .then(res=>res.json())
+    .then(data=>{
+        const elem=document.getElementById(`metrics-agent-${url}`);
+        if(elem){
+            elem.innerHTML=`CPU: ${data.cpu_percent_str}, RAM: ${data.ram_percent_str}`;
+        }
+    }).catch(err=>{
+        const elem=document.getElementById(`metrics-agent-${url}`);
+        if(elem) elem.innerHTML="Error fetching metrics";
+        console.error(err);
+    });
+}
+
+function initMetrics(){
+    const containerRows=document.querySelectorAll("[id^=container-]");
+    containerRows.forEach(row=>{
+        const username=row.querySelector("td").innerText;
+        const containerName=row.id.replace("container-","");
+        const url=row.dataset.agentUrl;
+        updateMetricsContainer(containerName,url);
+        updateContainerStatus(username);
+        setInterval(()=>updateMetricsContainer(containerName,url),10000);
+        setInterval(()=>updateContainerStatus(username),10000);
+    });
+
+    const agentRows=document.querySelectorAll("[id^=agent-]");
+    agentRows.forEach(row=>{
+        const url=row.dataset.agentUrl;
+        updateMetricsAgent(url);
+        setInterval(()=>updateMetricsAgent(url),10000);
+    });
+}
+
+window.onload=initMetrics;
+</script>
+</body>
+</html>

@@ -12,6 +12,13 @@ import (
 	"v0/internal/app/adapters"
 )
 
+type ContainerStatsResponse struct {
+	CPUPercent    float64 `json:"cpu_percent"`
+	MemoryUsage   float64  `json:"memory_usage"`
+	MemoryLimit   float64  `json:"memory_limit"`
+	MemoryPercent float64 `json:"memory_percent"`
+}
+
 type SelectedAgent struct {
 	URL   string
 	Info  AgentServiceInfo
@@ -19,6 +26,7 @@ type SelectedAgent struct {
 }
 
 type AgentServiceInfo struct {
+	InstanceID    string            `json:"instanceID"`
 	MainHost      string            `json:"mainHost"`
 	MainHostProto string            `json:"mainHostProto"`
 	HostPort      string            `json:"hostPort"`
@@ -359,6 +367,34 @@ func (s *AgentService) FetchMetrics(agentURL string) (*FetchMetricsResponse, err
 	}
 
 	var result FetchMetricsResponse
+	if err := json.Unmarshal(resp.Body(), &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+
+}
+
+func (s *AgentService) FetchContainerStats(agentURL, containerName string) (*ContainerStatsResponse, error) {
+
+	endpoint := fmt.Sprintf("/api/v1/containers/%s/stats", containerName)
+	agentAPI := fmt.Sprintf("%s%s", agentURL, endpoint)
+	s.log.Info().Msgf("%s", agentAPI)
+	resp, err := s.restyAdapter.R().
+		SetHeader("Accept", "application/json").
+		SetHeader("X-Agent-Key", s.agentKey).
+		Get(agentAPI)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
+		var bodyStr string
+		if resp.Body() != nil {
+			bodyStr = string(resp.Body())
+		}
+		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode(), bodyStr)
+	}
+
+	var result ContainerStatsResponse
 	if err := json.Unmarshal(resp.Body(), &result); err != nil {
 		return nil, err
 	}

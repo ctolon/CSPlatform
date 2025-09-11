@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"net/url"
 
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
@@ -418,6 +419,113 @@ func (h *ContainerHandler) CreateContainerRequest(c echo.Context) error {
 
 }
 
+func (h *ContainerHandler) RenderContainerManager(c echo.Context) error {
+	ctx := context.Background()
+	services, err :=  h.agentService.RetrieveAllAgentData(ctx)
+	if err != nil {
+		c.JSON(500, echo.Map{"error": err.Error()})
+	}
+	containers, err := h.reg.GetAll(ctx)
+	if err != nil {
+		c.JSON(500, echo.Map{"error": err.Error()})
+	}
+	csrfToken := c.Get("csrf").(string)
+	data := map[string]interface{}{
+		"Containers": containers,
+		"Services":   services,
+		"CSRFToken":  csrfToken,
+	}
+	return h.tmpl.ExecuteTemplate(c.Response(), "container-mng.go.tmpl", data)
+}
+
+func (h *ContainerHandler) GetContainers(c echo.Context) error {
+    ctx := context.Background()
+    containers, err := h.reg.GetAll(ctx)
+    if err != nil {
+        return c.JSON(500, echo.Map{"error": err.Error()})
+    }
+    return c.JSON(200, containers)
+}
+
+func (h *ContainerHandler) GetAgents(c echo.Context) error {
+    ctx := context.Background()
+    services, err := h.agentService.RetrieveAllAgentData(ctx)
+    if err != nil {
+        return c.JSON(500, echo.Map{"error": err.Error()})
+    }
+    return c.JSON(200, services)
+}
+
+func (h *ContainerHandler) FetchMetrics(c echo.Context) error {
+	// agentURL query param olarak al
+	agentURL := c.Param("url")
+	if agentURL == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "agent_url path parameter is required"})
+	}
+
+	// decode
+	if decoded, err := url.QueryUnescape(agentURL); err == nil {
+		agentURL = decoded
+	}
+
+	metrics, err := h.agentService.FetchMetrics(agentURL)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, metrics)
+}
+
+func (h *ContainerHandler) FetchContainerStats(c echo.Context) error {
+	// agentURL path param olarak al
+	agentURL := c.Param("url")
+	containerName := c.Param("name")
+	if agentURL == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "url path parameter is required"})
+	}
+	if containerName == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "name parameter is required"})
+	}
+
+	// decode
+	if decoded, err := url.PathUnescape(agentURL); err == nil {
+		agentURL = decoded
+	}
+	if decoded, err := url.PathUnescape(containerName); err == nil {
+		containerName = decoded
+	}
+
+	metrics, err := h.agentService.FetchContainerStats(agentURL, containerName)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, metrics)
+}
+
+func (h *ContainerHandler) IsContainerRunning(c echo.Context) error {
+
+	ctx := context.Background()
+	username := c.Param("username")
+
+	cntInfo, err := h.reg.Get(ctx, username)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Failed to stop container: %v", err),
+		})
+	}
+
+	result, err := h.agentService.IsContainerRunning(cntInfo.AgentHost, cntInfo.ContainerName)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
+
 func appendSparkDriverHost(env map[string]string, sparkDriverHost string, keys ...string) {
     for _, key := range keys {
         prev := env[key]
@@ -430,4 +538,102 @@ func appendSparkDriverBindAddress(env map[string]string, keys ...string) {
         prev := env[key]
         env[key] = strings.TrimSpace(fmt.Sprintf("-Dspark.driver.bindAddress=0.0.0.0 %s", prev))
     }
+}
+
+func (h *ContainerHandler) StopContainerAPI(c echo.Context) error {
+	ctx := context.Background()
+	username := c.Param("username")
+
+	cntInfo, err := h.reg.Get(ctx, username)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Failed to stop container: %v", err),
+		})
+	}
+
+	_, err = h.agentService.StopContainer(cntInfo.AgentHost, cntInfo.ContainerName)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Failed to stop container: %v", err),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("Container stopped successfully for %s", username),
+	})
+}
+
+func (h *ContainerHandler) RestartContainerAPI(c echo.Context) error {
+	ctx := context.Background()
+	username := c.Param("username")
+
+	cntInfo, err := h.reg.Get(ctx, username)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Failed to restart container: %v", err),
+		})
+	}
+
+	_, err = h.agentService.RestartContainer(cntInfo.AgentHost, cntInfo.ContainerName)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Failed to restart container: %v", err),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("Container restarted successfully for %s", username),
+	})
+}
+
+func (h *ContainerHandler) StartContainerAPI(c echo.Context) error {
+	ctx := context.Background()
+	username := c.Param("username")
+
+	cntInfo, err := h.reg.Get(ctx, username)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Failed to start container: %v", err),
+		})
+	}
+
+	_, err = h.agentService.StartContainer(cntInfo.AgentHost, cntInfo.ContainerName)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Failed to start container: %v", err),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("Container started successfully for %s", username),
+	})
+}
+
+func (h *ContainerHandler) RemoveContainerAPI(c echo.Context) error {
+	ctx := context.Background()
+	username := c.Param("username")
+
+	cntInfo, err := h.reg.Get(ctx, username)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Failed to remove container: %v", err),
+		})
+	}
+
+	_, err = h.agentService.RemoveContainer(cntInfo.AgentHost, cntInfo.ContainerName)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Failed to remove container: %v", err),
+		})
+	}
+
+	if err := h.reg.Remove(ctx, username); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Failed to remove container registry entry: %v", err),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("Container removed successfully for %s", username),
+	})
 }

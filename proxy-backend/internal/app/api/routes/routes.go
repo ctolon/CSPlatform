@@ -109,6 +109,9 @@ func RegisterRoutes(log zerolog.Logger, config *config.AppConfig, tmpl *template
 	userInfoSvc := service.NewUserInfoService()
 	containerHandler := handlers.NewContainerHandler(userInfoSvc, tmpl, agentService, log, containerRegService, config)
 
+	discoveryRegistry := xdiscovery.NewRegistry(redisClient, time.Second*30, log)
+	discoveryHandler := handlers.NewDiscoveryHandler(discoveryRegistry, log)
+
 	// /api/v1
 	codeServerSessionHandler := handlers.NewCodeServerSessionHandler(codeServerSessions, tmpl)
 	apiGroup := e.Group("/api/v1", jwtMiddlewareForAdmins, standardCORSMiddleware)
@@ -118,12 +121,23 @@ func RegisterRoutes(log zerolog.Logger, config *config.AppConfig, tmpl *template
 	apiGroup.DELETE("/sessions", codeServerSessionHandler.CancelAllPost)
 	apiGroup.DELETE("/sessions/idle", codeServerSessionHandler.CloseIdlePost)
 
-	//
+	apiGroup.POST("/containers/stop/:username", containerHandler.StopContainerAPI)
+	apiGroup.POST("/containers/restart/:username", containerHandler.RestartContainerAPI)
+	apiGroup.POST("/containers/start/:username", containerHandler.StartContainerAPI)
+	apiGroup.POST("/containers/delete/:username", containerHandler.RemoveContainerAPI)
+	apiGroup.GET("/containers/is-running/:username", containerHandler.IsContainerRunning)
+	apiGroup.POST("/discovery/deregister", discoveryHandler.Deregister)
+
+	apiGroup.GET("/containers", containerHandler.GetContainers)
+	apiGroup.GET("/agents", containerHandler.GetAgents)
+
+
 	apiGroup.POST("/containers/create", containerHandler.CreateContainerRequest)
 
 	// /admin
 	adminGroup := e.Group("/admin", csrfMiddleware, jwtMiddlewareForAdmins, standardCORSMiddleware)
 	adminGroup.GET("/code-server-sessions", codeServerSessionHandler.RenderPage)
+	adminGroup.GET("/containers/manager", containerHandler.RenderContainerManager)
 
 	// /csplatform
 	homePageHandler := handlers.NewHomePageHandler(jwtService, tmpl, config, log, agentService, containerRegService)
@@ -136,13 +150,13 @@ func RegisterRoutes(log zerolog.Logger, config *config.AppConfig, tmpl *template
 	csplatformGroup.POST("/containers/restart", containerHandler.RestartContainer)
 	csplatformGroup.POST("/containers/start", containerHandler.StartContainer)
 	csplatformGroup.POST("/containers/delete", containerHandler.RemoveContainer)
+	csplatformGroup.GET("/containers/agent/:url/metrics", containerHandler.FetchMetrics)
+	csplatformGroup.GET("/containers/container/:name/:url/metrics", containerHandler.FetchContainerStats)
 
 	// /discovery
-	discoveryRegistry := xdiscovery.NewRegistry(redisClient, time.Second*30, log)
-	discoveryHandler := handlers.NewDiscoveryHandler(discoveryRegistry, log)
 	discoveryGroup := e.Group("/discovery", agentKeyMiddleware)
 	discoveryGroup.POST("/register", discoveryHandler.Register)
-	discoveryGroup.POST("/deregister", discoveryHandler.Discover)
+	discoveryGroup.POST("/deregister", discoveryHandler.Deregister)
 	discoveryGroup.POST("/healthcheck", discoveryHandler.HealthCheck)
 	discoveryGroup.GET("/discover/:serviceName", discoveryHandler.Discover)
 

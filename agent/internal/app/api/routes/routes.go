@@ -189,6 +189,7 @@ func RegisterRoutes(log zerolog.Logger, config *config.Config) (*echo.Echo, *xdi
 	apiGroup.GET("/containers/defaults", containerHandler.GetConfigDefaultsHandler)
 	apiGroup.GET("/containers/:name/exist", containerHandler.IsContainerExistHandler)
 	apiGroup.GET("/containers/:name/running", containerHandler.IsContainerRunningHandler)
+	apiGroup.GET("/containers/:name/stats", containerHandler.GetContainerStats)
 	apiGroup.GET("/metrics", metricsHandler.Fetch)
 	apiGroup.GET("/tags", agentHandler.GetTags)
 

@@ -65,9 +65,9 @@ func (s *ContainerRegistryService) Get(ctx context.Context, user string) (*Conta
 }
 
 // Remove container agent info
-func (h *ContainerRegistryService) Remove(ctx context.Context, user string) error {
+func (s *ContainerRegistryService) Remove(ctx context.Context, user string) error {
 	containerKey := fmt.Sprintf("container:%s", user)
-	n, err := h.rdb.Del(ctx, containerKey).Result()
+	n, err := s.rdb.Del(ctx, containerKey).Result()
 	if err != nil {
 		return fmt.Errorf("failed to remove container info: %w", err)
 	}
@@ -75,6 +75,27 @@ func (h *ContainerRegistryService) Remove(ctx context.Context, user string) erro
 		return fmt.Errorf("container not found")
 	}
 
-	h.log.Info().Msgf("Removed container info for %s", user)
+	s.log.Info().Msgf("Removed container info for %s", user)
 	return nil
+}
+
+// Get All Containers
+func (s *ContainerRegistryService) GetAll(ctx context.Context) ([]ContainerInfo, error) {
+	containerKeys, err := s.rdb.Keys(ctx, "container:*").Result()
+	if err != nil {
+		return nil, err
+	}
+	containers := []ContainerInfo{}
+	for _, key := range containerKeys {
+		val, err := s.rdb.Get(ctx, key).Result()
+		if err != nil {
+			return nil, err
+		}
+		var c ContainerInfo
+		if err := json.Unmarshal([]byte(val), &c); err == nil {
+			containers = append(containers, c)
+		}
+	}
+	return containers, nil
+
 }

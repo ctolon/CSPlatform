@@ -135,3 +135,17 @@ func (h *ContainerHandler) IsContainerRunningHandler(c echo.Context) error {
 		"running": running,
 	})
 }
+
+func (h *ContainerHandler) GetContainerStats(c echo.Context) error {
+	containerName := c.Param("name")
+	if containerName == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "container_name is required"})
+	}
+
+	stats, err := h.Service.GetContainerStatsByName(containerName)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, stats)
+}

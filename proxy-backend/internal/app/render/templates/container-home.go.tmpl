@@ -4,6 +4,25 @@
 <meta charset="UTF-8">
 <title>Container Manager</title>
 <style>
+.home-btn {
+    display: block;
+    width: fit-content;
+    margin: 0 auto 20px auto;
+    padding: 10px 16px;
+    background: #1e40af;
+    color: #ffffff;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    transition: 0.2s ease;
+}
+.home-btn:hover {
+    background: #2563eb;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: #f4f4f9;
@@ -116,6 +135,7 @@ button:hover { background: #45a049; }
 </head>
 <body>
 <div class="container">
+<a href="/csplatform/home" class="home-btn">Return to Home Page</a>
 <h2>Create Container</h2>
 <form id="containerForm" method="POST" action="/api/v1/containers/create">
 

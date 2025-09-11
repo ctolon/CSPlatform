@@ -121,13 +121,12 @@
                 </form>
             {{end}}
         {{else}}
-            <form method="GET" action="/csplatform/containers/create" target="_blank" rel="noopener noreferrer">
-                <button type="submit" class="info">Create a Container</button>
-            </form>
+            <a href="/csplatform/containers/create" class="btn">Create a Container</a>
         {{end}}
 
         {{ if contains .Groups .AdminGroup }}
-            <a href="/admin/code-server-sessions" target="_blank" rel="noopener noreferrer" class="btn">Go to Code Server Sessions Panel</a>
+            <a href="/admin/code-server-sessions" class="btn">Go to Code Server Sessions Panel</a>
+            <a href="/admin/containers/manager" class="btn">Go to Containers Manager</a>
             <a href="/redisinsight/ui/" target="_blank" rel="noopener noreferrer" class="btn">Go to RedisInsight UI</a>
         {{end}}
 

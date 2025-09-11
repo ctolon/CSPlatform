@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"encoding/json"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -18,6 +19,13 @@ import (
 
 	"a0/internal/config"
 )
+
+type ContainerStatsResponse struct {
+	CPUPercent    float64 `json:"cpu_percent"`
+	MemoryUsage   float64  `json:"memory_usage"`
+	MemoryLimit   float64  `json:"memory_limit"`
+	MemoryPercent float64 `json:"memory_percent"`
+}
 
 type CreateContainerRequest struct {
 	Image      string            `json:"image"`
@@ -772,3 +780,90 @@ func (s *ContainerService) IsContainerRunning(name string) (bool, error) {
 
 	return len(containers) > 0, nil
 }
+
+func (s *ContainerService) GetContainerStats(containerID string) (*ContainerStatsResponse, error) {
+	ctx := context.Background()
+
+	statsResp, err := s.cli.ContainerStats(ctx, containerID, false)
+	if err != nil {
+		return nil, err
+	}
+	defer statsResp.Body.Close()
+
+	var v container.StatsResponse
+	decoder := json.NewDecoder(statsResp.Body)
+	if err := decoder.Decode(&v); err != nil && err != io.EOF {
+		return nil, fmt.Errorf("decode stats failed: %w", err)
+	}
+
+	cpuPercent := calculateCPUPercent(v)
+
+	memUsageGB, memLimitGB, memPercent := calculateMemory(v)
+
+	return &ContainerStatsResponse{
+		CPUPercent:    cpuPercent,
+		MemoryUsage:   memUsageGB,
+		MemoryLimit:   memLimitGB,
+		MemoryPercent: memPercent,
+	}, nil
+}
+
+func (s *ContainerService) GetContainerStatsByName(containerName string) (*ContainerStatsResponse, error) {
+	ctx := context.Background()
+
+	containerID, err := s.GetContainerIDByName(containerName)
+	if err != nil {
+		return nil, err
+	}
+
+	statsResp, err := s.cli.ContainerStats(ctx, containerID, false)
+	if err != nil {
+		return nil, err
+	}
+	defer statsResp.Body.Close()
+
+	var v container.StatsResponse
+	decoder := json.NewDecoder(statsResp.Body)
+	if err := decoder.Decode(&v); err != nil && err != io.EOF {
+		return nil, fmt.Errorf("decode stats failed: %w", err)
+	}
+
+	cpuPercent := calculateCPUPercent(v)
+
+	memUsageGB, memLimitGB, memPercent := calculateMemory(v)
+
+	return &ContainerStatsResponse{
+		CPUPercent:    cpuPercent,
+		MemoryUsage:   memUsageGB,
+		MemoryLimit:   memLimitGB,
+		MemoryPercent: memPercent,
+	}, nil
+}
+
+func calculateCPUPercent(v container.StatsResponse) float64 {
+	cpuDelta := float64(v.CPUStats.CPUUsage.TotalUsage - v.PreCPUStats.CPUUsage.TotalUsage)
+	systemDelta := float64(v.CPUStats.SystemUsage - v.PreCPUStats.SystemUsage)
+	numCPUs := float64(len(v.CPUStats.CPUUsage.PercpuUsage))
+	if systemDelta > 0 && cpuDelta > 0 {
+		return math.Round((cpuDelta/systemDelta)*numCPUs*100000) / 1000 // 3 basamak
+	}
+	return 0
+}
+
+func calculateMemory(v container.StatsResponse) (usageGB, limitGB, percent float64) {
+	memUsage := v.MemoryStats.Usage
+	for _, key := range []string{"cache", "slab", "mapped_file"} {
+		if val, ok := v.MemoryStats.Stats[key]; ok {
+			memUsage -= val
+		}
+	}
+	memLimit := v.MemoryStats.Limit
+	if memLimit == 0 {
+		memLimit = 1 // fallback
+	}
+	usageGB = math.Round(float64(memUsage)/(1024*1024*1024)*1000) / 1000
+	limitGB = math.Round(float64(memLimit)/(1024*1024*1024)*1000) / 1000
+	percent = math.Round(float64(memUsage)/float64(memLimit)*100000) / 1000
+	return
+}
+

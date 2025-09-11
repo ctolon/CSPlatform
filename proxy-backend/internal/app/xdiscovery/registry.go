@@ -12,6 +12,7 @@ import (
 )
 
 type ServiceInstance struct {
+	InstanceID    string            `json:"instanceID"`
 	MainHost      string            `json:"mainHost"`
 	MainHostProto string            `json:"mainHostProto"`
 	HostPort      string            `json:"hostPort"`
@@ -61,6 +62,7 @@ func (r *Registry) Register(ctx context.Context, instanceID, serviceName string,
 		inst.Tags = tags
 		inst.Tags["realIP"] = realIP
 	}
+	inst.InstanceID = instanceID
 	data, _ := json.Marshal(inst)
 	if err := r.rdb.Set(ctx, key, data, r.ttl).Err(); err != nil {
 		return err
