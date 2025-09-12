@@ -24,9 +24,11 @@ func GetMimeTypeFromUrlSuffix(path string) string {
 		return "image/webp"
 	case strings.HasSuffix(path, ".css"):
 		return "text/css"
-	case strings.HasSuffix("Content-Type", ".wasm"):
+	case strings.HasSuffix(path, ".wasm"):
 		return "application/wasm"
+	case strings.HasSuffix(path, ".bin"):
+		return "application/octet-stream"
 	default:
-		return ""
+		return "application/octet-stream"
 	}
 }
